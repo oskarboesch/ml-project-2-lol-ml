@@ -1,4 +1,6 @@
 from utils.get_datasets import download_datasets
+from utils.utils import get_panda_from_txt, load_data, concatenate_all_dfs
+import os
 
 if __name__ == '__main__':
     # List of gene expression datasets to download
@@ -23,4 +25,10 @@ if __name__ == '__main__':
     ]
 
     # Call the download function with the selected gene expression datasets
-    download_datasets(gene_expression_datasets, selected_downloads, decompress=True)
+   #download_datasets(gene_expression_datasets, selected_downloads, decompress=True)
+
+    # Get the processed train data
+    df_train, df_test, df_train_targets = load_data(raw=False, categorical=False)
+
+    concatenate_all_dfs(df_train, gene_expression_datasets)
+    
