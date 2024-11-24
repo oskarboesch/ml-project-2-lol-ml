@@ -1,74 +1,85 @@
 import torch
 import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import DataLoader, TensorDataset
 
-# Define the VAE architecture
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 class VAE(nn.Module):
-    def __init__(self, input_dim, latent_dim):
+    def __init__(self, input_dim=784, hidden_dim=400, latent_dim=200):
         super(VAE, self).__init__()
+
+        # Encoder
         self.encoder = nn.Sequential(
-            nn.Linear(input_dim, 128),
-            nn.ReLU(),
-            nn.Linear(128, 64),
-            nn.ReLU()
+            nn.Linear(input_dim, hidden_dim),
+            nn.LeakyReLU(0.2),
+            nn.Linear(hidden_dim, latent_dim),
+            nn.LeakyReLU(0.2)
         )
-        self.fc_mu = nn.Linear(64, latent_dim)  # Latent mean
-        self.fc_logvar = nn.Linear(64, latent_dim)  # Latent log-variance
+        
+        # Latent mean and variance
+        self.mean_layer = nn.Linear(latent_dim, 2)
+        self.logvar_layer = nn.Linear(latent_dim, 2)
+        
+        # Decoder
         self.decoder = nn.Sequential(
-            nn.Linear(latent_dim, 64),
-            nn.ReLU(),
-            nn.Linear(64, 128),
-            nn.ReLU(),
-            nn.Linear(128, input_dim),
-            nn.Sigmoid()  # Ensure outputs are normalized
+            nn.Linear(2, latent_dim),
+            nn.LeakyReLU(0.2),
+            nn.Linear(latent_dim, hidden_dim),
+            nn.LeakyReLU(0.2),
+            nn.Linear(hidden_dim, input_dim),
+            nn.Sigmoid()
         )
-
+     
     def encode(self, x):
-        h = self.encoder(x)
-        mu = self.fc_mu(h)
-        logvar = self.fc_logvar(h)
-        return mu, logvar
+        x = self.encoder(x)
+        mean, logvar = self.mean_layer(x), self.logvar_layer(x)
+        return mean, logvar
 
-    def reparameterize(self, mu, logvar):
-        std = torch.exp(0.5 * logvar)
-        eps = torch.randn_like(std)
-        return mu + eps * std
+    def reparameterization(self, mean, logvar):
+        epsilon = torch.randn_like(logvar).to(device)
+        z = mean + torch.exp(0.5 * logvar) * epsilon
+        return z
 
     def decode(self, z):
         return self.decoder(z)
 
     def forward(self, x):
-        mu, logvar = self.encode(x)
-        z = self.reparameterize(mu, logvar)
-        return self.decode(z), mu, logvar
+        mean, logvar = self.encode(x)
+        z = self.reparameterization(mean, logvar)
+        x_hat = self.decode(z)
+        return x_hat, mean, logvar
 
-# Loss function
-def vae_loss(recon_x, x, mu, logvar):
-    # Reconstruction loss (binary cross-entropy or MSE)
-    recon_loss = nn.MSELoss()(recon_x, x)
-    # KL divergence
-    kld_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
-    return recon_loss + kld_loss
-
-# Prepare data
-def prepare_data(features, target, batch_size=32):
-    dataset = TensorDataset(torch.tensor(features, dtype=torch.float32),
-                            torch.tensor(target, dtype=torch.float32))
-    return DataLoader(dataset, batch_size=batch_size, shuffle=True)
-
-# Model training
-def train_vae(model, dataloader, epochs=50, lr=1e-3):
-    optimizer = optim.Adam(model.parameters(), lr=lr)
-    model.train()
+# Define the loss function as an external function
+def loss_function(x, x_hat, mean, logvar):
+    # Reconstruction loss
+    reconstruction_loss = nn.functional.binary_cross_entropy(x_hat, x, reduction="sum")
+    # KL divergence loss
+    KLD = -0.5 * torch.sum(1 + logvar - mean.pow(2) - logvar.exp())
+    return reconstruction_loss + KLD
+def train(model, train_loader, optimizer, epochs, device):
+    model.train()  # Set model to training mode
     for epoch in range(epochs):
-        total_loss = 0
-        for batch_features, _ in dataloader:  # Target not used for VAE training
+        overall_loss = 0
+        for batch_idx, (x,) in enumerate(train_loader):  # Single input tensor
+            x = x[0] if isinstance(x, tuple) else x  # Handle tuple if exists
+            x = x.view(x.size(0), -1).to(device)  # Flatten input for VAE
+
             optimizer.zero_grad()
-            recon_batch, mu, logvar = model(batch_features)
-            loss = vae_loss(recon_batch, batch_features, mu, logvar)
+
+            x_hat, mean, logvar = model(x)
+            loss = loss_function(x, x_hat, mean, logvar)  # Use external loss function
+            
+            overall_loss += loss.item()
+            
             loss.backward()
             optimizer.step()
-            total_loss += loss.item()
-        print(f"Epoch {epoch + 1}/{epochs}, Loss: {total_loss / len(dataloader):.4f}")
 
+        print(f"Epoch {epoch + 1}/{epochs}, Average Loss: {overall_loss / len(train_loader.dataset):.4f}")
+    return overall_loss
+
+# Exemple d'utilisation
+# Assurez-vous que `train_loader` est défini et contient vos données d'entraînement
+# input_dim = 784  # Par exemple, pour les images MNIST
+# latent_dim = 2
+# model = VAE(input_dim=input_dim, latent_dim=latent_dim).to(device)
+# optimizer = optim.Adam(model.parameters(), lr=1e-3)
+# train(model, train_loader, optimizer, epochs=50, device=device)
