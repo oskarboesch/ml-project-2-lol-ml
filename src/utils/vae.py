@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import matplotlib.pyplot as plt
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -10,20 +11,24 @@ class VAE(nn.Module):
         # Encoder
         self.encoder = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
+            nn.BatchNorm1d(hidden_dim),  # BatchNorm after first linear layer
             nn.LeakyReLU(0.2),
             nn.Linear(hidden_dim, latent_dim),
+            nn.BatchNorm1d(latent_dim),  # BatchNorm after second linear layer
             nn.LeakyReLU(0.2)
         )
         
         # Latent mean and variance
-        self.mean_layer = nn.Linear(latent_dim, 2)
-        self.logvar_layer = nn.Linear(latent_dim, 2)
+        self.mean_layer = nn.Linear(latent_dim, latent_dim)
+        self.logvar_layer = nn.Linear(latent_dim, latent_dim)
         
         # Decoder
         self.decoder = nn.Sequential(
-            nn.Linear(2, latent_dim),
+            nn.Linear(latent_dim, latent_dim),
+            nn.BatchNorm1d(latent_dim),  # BatchNorm after latent space input
             nn.LeakyReLU(0.2),
             nn.Linear(latent_dim, hidden_dim),
+            nn.BatchNorm1d(hidden_dim),  # BatchNorm after second decoder layer
             nn.LeakyReLU(0.2),
             nn.Linear(hidden_dim, input_dim),
             nn.Sigmoid()
@@ -51,35 +56,72 @@ class VAE(nn.Module):
 # Define the loss function as an external function
 def loss_function(x, x_hat, mean, logvar):
     # Reconstruction loss
-    reconstruction_loss = nn.functional.binary_cross_entropy(x_hat, x, reduction="sum")
+    reconstruction_loss = nn.functional.mse_loss(x_hat, x, reduction='sum')
     # KL divergence loss
     KLD = -0.5 * torch.sum(1 + logvar - mean.pow(2) - logvar.exp())
     return reconstruction_loss + KLD
-def train(model, train_loader, optimizer, epochs, device):
-    model.train()  # Set model to training mode
+def train(model, train_loader, val_loader, optimizer, epochs, device):
+    model.train()
     for epoch in range(epochs):
-        overall_loss = 0
-        for batch_idx, (x,) in enumerate(train_loader):  # Single input tensor
-            x = x[0] if isinstance(x, tuple) else x  # Handle tuple if exists
-            x = x.view(x.size(0), -1).to(device)  # Flatten input for VAE
-
-            optimizer.zero_grad()
-
-            x_hat, mean, logvar = model(x)
-            loss = loss_function(x, x_hat, mean, logvar)  # Use external loss function
+        train_loss = 0
+        for batch_idx, (x,) in enumerate(train_loader):
+            x = x.view(x.size(0), -1).to(device)  # Flatten input
             
-            overall_loss += loss.item()
+            optimizer.zero_grad()
+            
+            x_hat, mean, logvar = model(x)
+            loss = loss_function(x, x_hat, mean, logvar)
+            train_loss += loss.item()
             
             loss.backward()
             optimizer.step()
-
-        print(f"Epoch {epoch + 1}/{epochs}, Average Loss: {overall_loss / len(train_loader.dataset):.4f}")
-    return overall_loss
-
-# Exemple d'utilisation
-# Assurez-vous que `train_loader` est défini et contient vos données d'entraînement
-# input_dim = 784  # Par exemple, pour les images MNIST
-# latent_dim = 2
-# model = VAE(input_dim=input_dim, latent_dim=latent_dim).to(device)
-# optimizer = optim.Adam(model.parameters(), lr=1e-3)
-# train(model, train_loader, optimizer, epochs=50, device=device)
+        
+        # Validation
+        val_loss = 0
+        model.eval()
+        with torch.no_grad():
+            for x, in val_loader:
+                x = x.view(x.size(0), -1).to(device)
+                x_hat, mean, logvar = model(x)
+                val_loss += loss_function(x, x_hat, mean, logvar).item()
+        
+        train_loss /= len(train_loader.dataset)
+        val_loss /= len(val_loader.dataset)
+        print(f"Epoch {epoch+1}/{epochs}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}")
+def encode_data(model, X, device):
+    """
+    Extract latent features from a trained VAE using numpy arrays or tensors.
+    Args:
+        model: Trained VAE model.
+        X: Input data (e.g., X_train) as a NumPy array or Tensor.
+        device: Device (CPU or GPU).
+    Returns:
+        latent_features: Tensor of latent features.
+    """
+    model.eval()  # Set the model to evaluation mode
+    with torch.no_grad():
+        # Convert X to a torch tensor if it's not already
+        if not isinstance(X, torch.Tensor):
+            X = torch.tensor(X, dtype=torch.float32)
+        X = X.view(X.size(0), -1).to(device)  # Flatten input
+        mean, logvar = model.encode(X)
+        z = model.reparameterization(mean, logvar)  # Get latent variable
+    return z.cpu()  # Return latent features as a CPU tensor
+def plot_latent_space(latent_features, labels):
+    """
+    Plot the latent features in 2D.
+    Args:
+        latent_features: Tensor of latent features (2D).
+        labels: Corresponding labels for coloring.
+    """
+    z = latent_features.numpy()  # Convert to NumPy for plotting
+    labels = labels.numpy() if isinstance(labels, torch.Tensor) else labels  # Ensure labels are NumPy
+    
+    plt.figure(figsize=(8, 6))
+    scatter = plt.scatter(z[:, 0], z[:, 1], c=labels, cmap='viridis', alpha=0.7)
+    plt.colorbar(scatter, label='Drug Response (AAC)')
+    plt.title("VAE Latent Space")
+    plt.xlabel("Latent Dimension 1")
+    plt.ylabel("Latent Dimension 2")
+    plt.grid(True)
+    plt.show()

@@ -44,7 +44,7 @@ def get_panda_from_txt(file_path, train_data):
     extra_data = extra_data.T
     extra_data = extra_data.iloc[:, 2:]
     # Get rid of first two rows
-    extra_data = extra_data.iloc[2:, :]
+    extra_data = extra_data.iloc[3:]
 
     # Standardize the features and skip std=0 columns
     std_devs = extra_data.std()
@@ -54,11 +54,10 @@ def get_panda_from_txt(file_path, train_data):
 
     # Get common columns
     common_columns = extra_data.columns.intersection(train_data.columns)
+    print(f'Common columns: {common_columns}')
     # Only keep common columns
     extra_data = extra_data[common_columns]
-
     # Add empty columns for the missing columns from train to extra_data
-    missing_columns = train_data.columns.difference(extra_data.columns)
     extra_data = extra_data.reindex(columns=train_data.columns, fill_value=0)
 
     return extra_data
@@ -93,34 +92,4 @@ def concatenate_all_dfs(df_train, gene_expression_datasets):
     data_path = project_root / 'data' / 'preprocessed'
     print("Saving new data...")
     df_train.to_csv(data_path / 'train_augmented.csv', index=False)
-
-
-# Define the autoencoder model
-def create_mlp_sae(input_shape, encoding_dim):
-    # Input layer
-    input_layer = layers.Input(shape=input_shape)
-
-    # Encoder: MLP architecture with Dropout
-    encoded = layers.Dense(512, activation='relu')(input_layer)
-    encoded = layers.Dropout(0.2)(encoded)
-    encoded = layers.Dense(256, activation='relu')(encoded)
-    encoded = layers.Dropout(0.2)(encoded)
-    encoded = layers.Dense(encoding_dim, activation='relu')(encoded)
-
-    # Decoder: MLP architecture with Dropout
-    decoded = layers.Dense(256, activation='relu')(encoded)
-    decoded = layers.Dropout(0.2)(decoded)
-    decoded = layers.Dense(512, activation='relu')(decoded)
-    decoded = layers.Dropout(0.2)(decoded)
-    decoded = layers.Dense(input_shape[0], activation='sigmoid')(decoded)  # Output layer
-
-    # Create autoencoder model
-    autoencoder = models.Model(inputs=input_layer, outputs=decoded)
-
-    # Create encoder model for feature extraction
-    encoder = models.Model(inputs=input_layer, outputs=encoded)
-
-    # Compile the model
-    autoencoder.compile(optimizer='adam', loss='mse')
-
-    return autoencoder, encoder
+    print("New data saved.")
