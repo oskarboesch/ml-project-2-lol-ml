@@ -31,7 +31,7 @@ class VAE(nn.Module):
             nn.BatchNorm1d(hidden_dim),  # BatchNorm after second decoder layer
             nn.LeakyReLU(0.2),
             nn.Linear(hidden_dim, input_dim),
-            nn.Sigmoid()
+            nn.Tanh()
         )
      
     def encode(self, x):
@@ -56,7 +56,7 @@ class VAE(nn.Module):
 # Define the loss function as an external function
 def loss_function(x, x_hat, mean, logvar):
     # Reconstruction loss
-    reconstruction_loss = nn.functional.mse_loss(x_hat, x, reduction='sum')
+    reconstruction_loss = nn.functional.mse_loss(x_hat, x)
     # KL divergence loss
     KLD = -0.5 * torch.sum(1 + logvar - mean.pow(2) - logvar.exp())
     return reconstruction_loss + KLD
@@ -88,25 +88,7 @@ def train(model, train_loader, val_loader, optimizer, epochs, device):
         train_loss /= len(train_loader.dataset)
         val_loss /= len(val_loader.dataset)
         print(f"Epoch {epoch+1}/{epochs}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}")
-def encode_data(model, X, device):
-    """
-    Extract latent features from a trained VAE using numpy arrays or tensors.
-    Args:
-        model: Trained VAE model.
-        X: Input data (e.g., X_train) as a NumPy array or Tensor.
-        device: Device (CPU or GPU).
-    Returns:
-        latent_features: Tensor of latent features.
-    """
-    model.eval()  # Set the model to evaluation mode
-    with torch.no_grad():
-        # Convert X to a torch tensor if it's not already
-        if not isinstance(X, torch.Tensor):
-            X = torch.tensor(X, dtype=torch.float32)
-        X = X.view(X.size(0), -1).to(device)  # Flatten input
-        mean, logvar = model.encode(X)
-        z = model.reparameterization(mean, logvar)  # Get latent variable
-    return z.cpu()  # Return latent features as a CPU tensor
+
 def plot_latent_space(latent_features, labels):
     """
     Plot the latent features in 2D.
