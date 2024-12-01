@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
+import keras
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -107,3 +108,15 @@ def plot_latent_space(latent_features, labels):
     plt.ylabel("Latent Dimension 2")
     plt.grid(True)
     plt.show()
+
+def create_ae_model(input_dim=50, hidden_dim=40, latent_dim=10):
+    # Set the encoding dimension
+    input_layer = keras.layers.Input(shape=(input_dim,))
+    encoder = keras.layers.Dense(latent_dim, activation="relu")(input_layer)
+    decoder = keras.layers.Dense(input_dim, activation="sigmoid")(encoder)
+    autoencoder = keras.Model(inputs=input_layer, outputs=decoder)
+
+    # Compile the autoencoder
+    autoencoder.compile(optimizer='adam', loss='mse')
+    return autoencoder
+    

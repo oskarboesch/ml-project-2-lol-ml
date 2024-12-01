@@ -3,9 +3,6 @@ import sys
 from pathlib import Path
 import numpy as np
 import os
-from tqdm import tqdm
-import tensorflow as tf
-from tensorflow.keras import layers, models
 
 
 def load_data(raw = True, categorical = False):
@@ -24,9 +21,10 @@ def load_data(raw = True, categorical = False):
         train_path = folder_path / 'train.csv'
     return pd.read_csv(train_path), pd.read_csv(folder_path / 'test.csv'), pd.read_csv(folder_path / 'train_targets.csv')
 
-def save_data(df_train, df_train_categorical, df_test, df_train_targets):
+def save_data(df_train, df_train_categorical, df_test, df_train_targets, df_total):
     """Save the preprocessed train, test and train targets data to a CSV file."""
     # Add the project root directory to the Python path
+    print("Saving preprocessed data to csv...")
     project_root = Path(__file__).resolve().parent.parent.parent
     sys.path.append(str(project_root))
     data_path = project_root / 'data' / 'preprocessed'
@@ -34,6 +32,15 @@ def save_data(df_train, df_train_categorical, df_test, df_train_targets):
     df_train_categorical.to_csv(data_path / 'train_categorical.csv', index=False)
     df_test.to_csv(data_path / 'test.csv', index=False)
     df_train_targets.to_csv(data_path / 'train_targets.csv', index=False)
+    df_total.to_csv(data_path / 'total_data.csv', index=False)
+    print("Saving preprocessed data to tsv...")
+    # Save in tsv format as well
+    df_train.to_csv(data_path / 'train.tsv', sep='\t', index=False)
+    df_train_categorical.to_csv(data_path / 'train_categorical.tsv', sep='\t', index=False)
+    df_test.to_csv(data_path / 'test.tsv', sep='\t', index=False)
+    df_train_targets.to_csv(data_path / 'train_targets.tsv', sep='\t', index=False)
+    df_total.to_csv(data_path / 'total_data.tsv', sep='\t', index=False)
+    print("Preprocessed data saved.")
 
 
 def get_panda_from_txt(file_path, train_data):
@@ -93,3 +100,15 @@ def concatenate_all_dfs(df_train, gene_expression_datasets):
     print("Saving new data...")
     df_train.to_csv(data_path / 'train_augmented.csv', index=False)
     print("New data saved.")
+
+def load_augmented_data():
+    # Add the project root directory to the Python path
+    data_path = Path(__file__).resolve().parent.parent.parent / 'data' / 'preprocessed'
+    # Load the augmented data
+    train_augmented = pd.read_csv(data_path / 'train_augmented.csv')
+    percentage_zeros = (train_augmented == 0).mean()
+    # Get all columns with more than 60% zeros
+    columns_to_drop = percentage_zeros[percentage_zeros > 0.6].index
+    # drop these columns
+    train_augmented = train_augmented.drop(columns=columns_to_drop)
+    return train_augmented

@@ -1,5 +1,6 @@
 import pandas as pd
 from tqdm import tqdm
+from sklearn.preprocessing import MinMaxScaler
 
 def preprocess_data(df_train, df_test, df_train_targets):
     """Preprocess the data."""
@@ -19,18 +20,14 @@ def preprocess_data(df_train, df_test, df_train_targets):
     df_train = df_train.drop(columns=zero_std_columns)
     df_test = df_test.drop(columns=zero_std_columns)
     
-    # Standardize columns with checks
-    for col in tqdm(df_train.columns, desc="Standardizing Train Data"):
-        if df_train[col].std() != 0:
-            df_train[col] = (df_train[col] - df_train[col].mean()) / df_train[col].std()
-        else:
-            print(f"Skipping column '{col}' in train data: standard deviation is zero.")
-    
-    for col in tqdm(df_test.columns, desc="Standardizing Test Data"):
-        if df_test[col].std() != 0:
-            df_test[col] = (df_test[col] - df_test[col].mean()) / df_test[col].std()
-        else:
-            print(f"Skipping column '{col}' in test data: standard deviation is zero.")
+    # Standardize the data with a model
+    scaler = MinMaxScaler()
+    scaler.fit(df_train)
+    print("Standardizing data...")
+    df_train = pd.DataFrame(scaler.transform(df_train), columns=df_train.columns)
+    scaler.fit(df_test)
+    df_test = pd.DataFrame(scaler.transform(df_test), columns=df_test.columns)
+    print("Data standardized.")
 
     # Copy the train data
     df_train_categorical = df_train.copy()
@@ -41,7 +38,10 @@ def preprocess_data(df_train, df_test, df_train_targets):
     # One-hot encode the tissue column
     df_train_categorical = pd.get_dummies(df_train_categorical, columns=['tissue'])
 
+    # create a concatenation of train and test
+    df_total = pd.concat([df_train, df_test], axis=0)
+
     
-    return df_train, df_train_categorical, df_test, df_train_targets
+    return df_train, df_train_categorical, df_test, df_train_targets, df_total
 
 
