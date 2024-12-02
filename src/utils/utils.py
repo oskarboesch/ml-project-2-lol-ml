@@ -27,7 +27,8 @@ def load_encoded_data():
     project_root = Path(__file__).resolve().parent.parent.parent
     sys.path.append(str(project_root))
     data_path = project_root / 'data' / 'encoded'
-    return pd.read_csv(data_path / 'ae_data.csv'), pd.read_csv(data_path / 'vae_data.csv'), pd.read_csv(data_path / 'vae2_data.csv')
+    #drop the first column of vae2_data.tsv
+    return pd.read_csv(data_path / 'ae_data.csv'), pd.read_csv(data_path / 'vae_data.csv'), pd.read_csv(data_path / 'vae2_data.tsv', sep='\t').iloc[:,1:]
 
 def save_data(df_train, df_train_categorical, df_test, df_train_targets, df_total):
     """Save the preprocessed train, test and train targets data to a CSV file."""
