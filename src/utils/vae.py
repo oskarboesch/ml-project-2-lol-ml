@@ -2,8 +2,17 @@ import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
 import keras
+from pathlib import Path
+import os
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+project_root = Path(__file__).resolve().parent.parent.parent
+MODEL_PATH = project_root / 'models' / 'vae'
+
+# Check if folder exists
+if not Path(MODEL_PATH).parent.exists():
+    Path(MODEL_PATH).parent.mkdir(parents=True)
 
 class VAE(nn.Module):
     def __init__(self, input_dim=784, hidden_dim=400, latent_dim=200):
@@ -109,7 +118,7 @@ def plot_latent_space(latent_features, labels):
     plt.grid(True)
     plt.show()
 
-def create_ae_model(input_dim=50, hidden_dim=40, latent_dim=10):
+def create_ae_model(input_dim=50, latent_dim=10):
     # Set the encoding dimension
     input_layer = keras.layers.Input(shape=(input_dim,))
     encoder = keras.layers.Dense(latent_dim, activation="relu")(input_layer)
@@ -120,3 +129,21 @@ def create_ae_model(input_dim=50, hidden_dim=40, latent_dim=10):
     autoencoder.compile(optimizer='adam', loss='mse')
     return autoencoder
     
+def save_vae_model(model, spearman_score):
+    """
+    Saves the model with the Spearman score in the file name.
+    
+    Parameters:
+    - model: The model to save.
+    - spearman_score: The Spearman correlation score (float).
+    """
+    score_str = f"{spearman_score:.4f}"  # Format the score to 4 digits
+    score = score_str.replace('.', '_') # Convert x_xxx to float
+    model_path = os.path.join(MODEL_PATH, f"vae_model_{score}.pth")
+    
+    torch.save(model, model_path)
+    print(f"\033[92mModel saved at {model_path}\033[0m")
+    return model_path
+def load_vae_model(file_name):
+    model_path = os.path.join(MODEL_PATH, file_name)
+    return torch.load(model_path)

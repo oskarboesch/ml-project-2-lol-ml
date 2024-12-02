@@ -2,7 +2,15 @@ import torch
 import torch.nn as nn
 import itertools
 from scipy.stats import spearmanr
+from pathlib import Path
+import os
 
+project_root = Path(__file__).resolve().parent.parent.parent
+MODEL_PATH = project_root / 'models' / 'mlp'
+
+# Check if folder exists
+if not Path(MODEL_PATH).exists():
+    Path(MODEL_PATH).mkdir(parents=True)
 
 class MLP(nn.Module):
     def __init__(self, input_size, hidden_layers):
@@ -68,12 +76,12 @@ def train_margin_ranking(model, optimizer, margin, X_train, y_train, X_val, y_va
         if val_spearman > best_spearman:
             best_spearman = val_spearman
             epochs_no_improve = 0
-            best_model = model.state_dict()  # Save the best model
+            save_mlp_model(model, best_spearman)
+            print("Model saved at", MODEL_PATH)
         else:
             epochs_no_improve += 1
         if epochs_no_improve >= patience:
             print("Early stopping triggered.")
-            model.load_state_dict(best_model)  # Load the best model
             break
 def generate_pairs(X, y):
     """
@@ -90,3 +98,22 @@ def generate_pairs(X, y):
     X2 = torch.stack([X[j] for i, j in pairs])
     y_pairs = torch.tensor([1 if y[i] > y[j] else -1 for i, j in pairs], dtype=torch.float32)
     return X1, X2, y_pairs
+
+def save_mlp_model(model, spearman_score):
+    """
+    Saves the model with the Spearman score in the file name.
+    
+    Parameters:
+    - model: The model to save.
+    - spearman_score: The Spearman correlation score (float).
+    """
+    score_str = f"{spearman_score:.4f}"  # Format the score to 4 digits
+    score = score_str.replace('.', '_')  # Convert x_xxx to float
+    model_path = os.path.join(MODEL_PATH, f"mlp_model_{score}.pth")
+    torch.save(model, model_path)
+    print(f"\033[92mModel saved at {model_path}\033[0m")
+    return model_path
+
+def load_mlp_model(file_name):
+    model_path = os.path.join(MODEL_PATH, file_name)
+    return torch.load(model_path)
