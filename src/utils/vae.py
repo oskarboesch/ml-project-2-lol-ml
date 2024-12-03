@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import keras
 from pathlib import Path
 import os
+from torch.utils.data import DataLoader, TensorDataset
+import torch.optim as optim
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -147,3 +149,28 @@ def save_vae_model(model, spearman_score):
 def load_vae_model(file_name):
     model_path = os.path.join(MODEL_PATH, file_name)
     return torch.load(model_path)
+def train_autoencoder(X_train, X_test, input_dim, config):
+    """Trains an autoencoder and extracts encoded features."""
+    autoencoder = create_ae_model(input_dim=input_dim, latent_dim=config['latent_dim'])
+    autoencoder.fit(
+        X_train, X_train,
+        epochs=config['epochs_autoencoder'],
+        batch_size=config['batch_size'],
+        shuffle=False,
+        validation_data=(X_test, X_test),
+        verbose=0
+    )
+    encoder = keras.Model(inputs=autoencoder.input, outputs=autoencoder.layers[1].output)
+    return encoder
+def train_vae(X_train, X_test, config, device):
+    """Trains a Variational Autoencoder (VAE) and extracts latent features."""
+    input_dim = X_train.shape[1]
+    train_loader = DataLoader(TensorDataset(torch.tensor(X_train.values, dtype=torch.float32)),
+                              batch_size=config['batch_size'], shuffle=True)
+    test_loader = DataLoader(TensorDataset(torch.tensor(X_test.values, dtype=torch.float32)),
+                             batch_size=config['batch_size'], shuffle=False)
+    
+    model = VAE(input_dim=input_dim, latent_dim=config['latent_dim']).to(device)
+    optimizer = optim.Adam(model.parameters(), lr=config['lr_vae'])
+    train(model, train_loader, test_loader, optimizer, epochs=config['epochs_vae'], device=device)
+    return model

@@ -1,8 +1,9 @@
 import pandas as pd
-from tqdm import tqdm
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.decomposition import PCA
 
-def preprocess_data(df_train, df_test, df_train_targets):
+
+def preprocess_data(df_train, df_test, df_train_targets, min_max_scale=False):
     """Preprocess the data."""
     # Drop the ID column
     df_train = df_train.iloc[:, 1:]
@@ -21,13 +22,18 @@ def preprocess_data(df_train, df_test, df_train_targets):
     df_test = df_test.drop(columns=zero_std_columns)
     
     # Standardize the data with a model
-    scaler = MinMaxScaler()
+    if min_max_scale:
+        scaler = MinMaxScaler()
+        message = "Min-max scaling data selected for VAE2..."
+    else :
+        scaler = StandardScaler()
+        message = "Standardizing data..."
     scaler.fit(df_train)
-    print("Standardizing data...")
+    print(message)
     df_train = pd.DataFrame(scaler.transform(df_train), columns=df_train.columns)
-    scaler.fit(df_test)
+    if min_max_scale:
+        scaler.fit(df_test)
     df_test = pd.DataFrame(scaler.transform(df_test), columns=df_test.columns)
-    print("Data standardized.")
 
     # Copy the train data
     df_train_categorical = df_train.copy()
@@ -60,3 +66,12 @@ def create_CGC_data(df_train, df_test):
     
 
     return cgc_train, cgc_test
+
+def create_PCA_data(df_train, df_test):
+    """Create the PCA data."""
+    pca = PCA()
+    pca.fit(df_train)
+    pca_train = pd.DataFrame(pca.transform(df_train))
+    pca_test = pd.DataFrame(pca.transform(df_test))
+    
+    return pca_train, pca_test

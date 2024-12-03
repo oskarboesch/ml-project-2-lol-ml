@@ -3,6 +3,11 @@ import sys
 from pathlib import Path
 import numpy as np
 import os
+import torch
+import tensorflow as tf
+import random
+from sklearn.preprocessing import MinMaxScaler
+
 
 
 def load_data(raw = True, categorical = False):
@@ -30,7 +35,7 @@ def load_encoded_data():
     #drop the first column of vae2_data.tsv
     return pd.read_csv(data_path / 'ae_data.csv'), pd.read_csv(data_path / 'vae_data.csv'), pd.read_csv(data_path / 'vae2_data.tsv', sep='\t').iloc[:,1:]
 
-def save_data(df_train, df_train_categorical, df_test, df_train_targets, df_total, cgc_train, cgc_test):
+def save_data(df_train, df_train_categorical, df_test, df_train_targets, df_total, cgc_train, cgc_test, pca_train, pca_test):
     """Save the preprocessed train, test and train targets data to a CSV file."""
     # Add the project root directory to the Python path
     print("Saving preprocessed data to csv...")
@@ -46,18 +51,27 @@ def save_data(df_train, df_train_categorical, df_test, df_train_targets, df_tota
     cgc_test.to_csv(data_path / 'cgc_test.csv', index=False)
     cgc_total = pd.concat([cgc_train, cgc_test], axis=0)
     cgc_total.to_csv(data_path / 'cgc_total.csv', index=False)
+    pca_train.to_csv(data_path / 'pca_train.csv', index=False)
+    pca_test.to_csv(data_path / 'pca_test.csv', index=False)
+    pca_total = pd.concat([pca_train, pca_test], axis=0)
+    pca_total.to_csv(data_path / 'pca_total.csv', index=False)
+    print("Preprocessed data saved to csv.")
+
+def save_to_tsv(df_total, cgc_train, cgc_test, pca_train, pca_test):
     print("Saving preprocessed data to tsv...")
     # Save in tsv format as well
-    df_train.to_csv(data_path / 'train.tsv', sep='\t', index=False)
-    df_train_categorical.to_csv(data_path / 'train_categorical.tsv', sep='\t', index=False)
-    df_test.to_csv(data_path / 'test.tsv', sep='\t', index=False)
-    df_train_targets.to_csv(data_path / 'train_targets.tsv', sep='\t', index=False)
-    df_total.to_csv(data_path / 'total_data.tsv', sep='\t', index=False)
-    cgc_train.to_csv(data_path / 'cgc_train.tsv', sep='\t', index=False)
-    cgc_test.to_csv(data_path / 'cgc_test.tsv', sep='\t', index=False)
-    cgc_total.to_csv(data_path / 'cgc_total.tsv', sep='\t', index=False)
+    project_root = Path(__file__).resolve().parent.parent.parent
+    sys.path.append(str(project_root))
+    data_path = project_root / 'data' / 'preprocessed' 
 
-    print("Preprocessed data saved.")
+    cgc_total = pd.concat([cgc_train, cgc_test], axis=0)
+    pca_total = pd.concat([pca_train, pca_test], axis=0)
+
+    df_total.to_csv(data_path / 'total_data.tsv', sep='\t', index=False)
+    cgc_total.to_csv(data_path / 'cgc_total.tsv', sep='\t', index=False)
+    pca_total.to_csv(data_path / 'pca_total.tsv', sep='\t', index=False)
+    print("Preprocessed data saved to tsv.")
+
 
 
 def get_panda_from_txt(file_path, train_data):
@@ -138,3 +152,35 @@ def load_cgc_data():
     cgc_test = pd.read_csv(data_path / 'cgc_test.csv')
     train_targets = pd.read_csv(data_path / 'train_targets.csv')
     return cgc_train, cgc_test, train_targets
+
+def load_pca_data():
+    # Add the project root directory to the Python path
+    data_path = Path(__file__).resolve().parent.parent.parent / 'data' / 'preprocessed'
+    # Load the PCA data
+    pca_train = pd.read_csv(data_path / 'pca_train.csv')
+    pca_test = pd.read_csv(data_path / 'pca_test.csv')
+    train_targets = pd.read_csv(data_path / 'train_targets.csv')
+    return pca_train, pca_test, train_targets
+
+def set_random_seed(seed = 42):
+    """Set the random seed for reproducibility."""
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    np.random.seed(seed)
+    tf.random.set_seed(seed)
+
+    # Ensure TensorFlow uses deterministic behavior (if using GPU)
+    tf.config.experimental.enable_op_determinism()
+
+def min_max_scale(df):
+    """Scale the data using MinMaxScaler."""
+    # Initialize the MinMaxScaler
+    scaler = MinMaxScaler()
+    # Fit the scaler on the training data
+    df = pd.DataFrame(scaler.fit_transform(df), columns=df.columns)
+    return df
