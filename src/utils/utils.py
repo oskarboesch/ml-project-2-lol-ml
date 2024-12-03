@@ -30,7 +30,7 @@ def load_encoded_data():
     #drop the first column of vae2_data.tsv
     return pd.read_csv(data_path / 'ae_data.csv'), pd.read_csv(data_path / 'vae_data.csv'), pd.read_csv(data_path / 'vae2_data.tsv', sep='\t').iloc[:,1:]
 
-def save_data(df_train, df_train_categorical, df_test, df_train_targets, df_total):
+def save_data(df_train, df_train_categorical, df_test, df_train_targets, df_total, cgc_train, cgc_test):
     """Save the preprocessed train, test and train targets data to a CSV file."""
     # Add the project root directory to the Python path
     print("Saving preprocessed data to csv...")
@@ -42,6 +42,10 @@ def save_data(df_train, df_train_categorical, df_test, df_train_targets, df_tota
     df_test.to_csv(data_path / 'test.csv', index=False)
     df_train_targets.to_csv(data_path / 'train_targets.csv', index=False)
     df_total.to_csv(data_path / 'total_data.csv', index=False)
+    cgc_train.to_csv(data_path / 'cgc_train.csv', index=False)
+    cgc_test.to_csv(data_path / 'cgc_test.csv', index=False)
+    cgc_total = pd.concat([cgc_train, cgc_test], axis=0)
+    cgc_total.to_csv(data_path / 'cgc_total.csv', index=False)
     print("Saving preprocessed data to tsv...")
     # Save in tsv format as well
     df_train.to_csv(data_path / 'train.tsv', sep='\t', index=False)
@@ -49,6 +53,10 @@ def save_data(df_train, df_train_categorical, df_test, df_train_targets, df_tota
     df_test.to_csv(data_path / 'test.tsv', sep='\t', index=False)
     df_train_targets.to_csv(data_path / 'train_targets.tsv', sep='\t', index=False)
     df_total.to_csv(data_path / 'total_data.tsv', sep='\t', index=False)
+    cgc_train.to_csv(data_path / 'cgc_train.tsv', sep='\t', index=False)
+    cgc_test.to_csv(data_path / 'cgc_test.tsv', sep='\t', index=False)
+    cgc_total.to_csv(data_path / 'cgc_total.tsv', sep='\t', index=False)
+
     print("Preprocessed data saved.")
 
 
@@ -121,3 +129,12 @@ def load_augmented_data():
     # drop these columns
     train_augmented = train_augmented.drop(columns=columns_to_drop)
     return train_augmented
+
+def load_cgc_data():
+    # Add the project root directory to the Python path
+    data_path = Path(__file__).resolve().parent.parent.parent / 'data' / 'preprocessed'
+    # Load the CGC data
+    cgc_train = pd.read_csv(data_path / 'cgc_train.csv')
+    cgc_test = pd.read_csv(data_path / 'cgc_test.csv')
+    train_targets = pd.read_csv(data_path / 'train_targets.csv')
+    return cgc_train, cgc_test, train_targets

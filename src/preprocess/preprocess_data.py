@@ -45,3 +45,18 @@ def preprocess_data(df_train, df_test, df_train_targets):
     return df_train, df_train_categorical, df_test, df_train_targets, df_total
 
 
+def create_CGC_data(df_train, df_test):
+    """Create the CGC data."""
+    # Get the CGC data
+    cgc_data = pd.read_csv('data/CGC.csv')
+    cgc_data = cgc_data['Gene Symbol']
+
+    # Get the common columns
+    common_columns = cgc_data[cgc_data.isin(df_train.columns)]
+    # Get the common columns in the train data
+    cgc_train = df_train[common_columns]
+    # Get the common columns in the test data
+    cgc_test = df_test[common_columns]
+    
+
+    return cgc_train, cgc_test
