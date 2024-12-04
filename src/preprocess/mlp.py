@@ -4,6 +4,7 @@ import itertools
 from scipy.stats import spearmanr
 from pathlib import Path
 import os
+from matplotlib import pyplot as plt
 
 project_root = Path(__file__).resolve().parent.parent.parent
 MODEL_PATH = project_root / 'models' / 'mlp'
@@ -47,6 +48,20 @@ def train_margin_ranking(model, optimizer, margin, X_train, y_train, X_val, y_va
     patience = 100  # Number of epochs to wait before stopping
     epochs_no_improve = 0
 
+    # Initialize lists to store metrics
+    train_spearman_list = []
+    val_spearman_list = []
+
+    # Initialize real-time plot
+    plt.ion()
+    fig, ax = plt.subplots()
+    ax.set_xlabel("Epochs")
+    ax.set_ylabel("Spearman Correlation")
+    ax.set_title("Training and Validation Spearman Correlation")
+    train_line, = ax.plot([], [], label="Train Spearman", color="blue")
+    val_line, = ax.plot([], [], label="Val Spearman", color="orange")
+    ax.legend()
+
     for epoch in range(epochs):
         model.train()
 
@@ -60,19 +75,36 @@ def train_margin_ranking(model, optimizer, margin, X_train, y_train, X_val, y_va
         loss.backward()
         optimizer.step()
 
-        # Validation
+        # Compute training Spearman
         model.eval()
+        with torch.no_grad():
+            train_predictions = model(torch.tensor(X_train, dtype=torch.float32)).squeeze()
+            train_spearman, _ = spearmanr(train_predictions.numpy(), y_train.numpy())
+
+        # Validation
         val_predictions = model(torch.tensor(X_val, dtype=torch.float32)).detach().squeeze()
         val_spearman, _ = spearmanr(val_predictions, y_val)
 
-        # Evaluate Spearman correlation
+        # Store metrics
+        train_spearman_list.append(train_spearman)
+        val_spearman_list.append(val_spearman)
+
+        # Update plot
+        train_line.set_xdata(range(len(train_spearman_list)))
+        train_line.set_ydata(train_spearman_list)
+        val_line.set_xdata(range(len(val_spearman_list)))
+        val_line.set_ydata(val_spearman_list)
+        ax.relim()
+        ax.autoscale_view()
+        plt.draw()
+        plt.pause(0.01)
+
+        # Print progress
         if (epoch + 1) % 10 == 0:
-            model.eval()
-            with torch.no_grad():
-                predictions = model(torch.tensor(X_train, dtype=torch.float32)).squeeze()
-                spearman, _ = spearmanr(predictions.numpy(), y_train.numpy())
-                print(f"Epoch [{epoch+1}/{epochs}], Loss: {loss.item():.4f}, Spearman: {spearman:.4f}", "Validation Spearman:", val_spearman)
-        
+            print(f"Epoch [{epoch+1}/{epochs}], Loss: {loss.item():.4f}, "
+                  f"Train Spearman: {train_spearman:.4f}, Val Spearman: {val_spearman:.4f}")
+
+        # Save the best model
         if val_spearman > best_spearman:
             best_spearman = val_spearman
             epochs_no_improve = 0
@@ -83,6 +115,10 @@ def train_margin_ranking(model, optimizer, margin, X_train, y_train, X_val, y_va
         if epochs_no_improve >= patience:
             print("Early stopping triggered.")
             break
+
+    plt.ioff()
+    plt.show()
+    plt.savefig("mlp_training_plot.png")
 def generate_pairs(X, y):
     """
     Generate all pairwise combinations of data and corresponding ranking labels.
