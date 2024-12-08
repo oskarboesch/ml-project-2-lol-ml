@@ -33,7 +33,93 @@ class MLP(nn.Module):
 
     def forward(self, x):
         return self.model(x)
+    
+
+def train_mse(model, optimizer, X_train, y_train, X_val, y_val, epochs):
+    # Use Mean Squared Error loss
+    criterion = nn.MSELoss()
+    
+    # Convert data to tensors
+    X_train = torch.tensor(X_train, dtype=torch.float32)
+    y_train = torch.tensor(y_train, dtype=torch.float32)
+
+    best_mse = float('inf')
+    patience = 100  # Number of epochs to wait before stopping
+    epochs_no_improve = 0
+
+    # Initialize lists to store metrics
+    train_mse_list = []
+    val_mse_list = []
+    
+    # Initialize real-time plot
+    plt.ion()
+    fig, ax = plt.subplots()
+    ax.set_xlabel("Epochs")
+    ax.set_ylabel("MSE Loss")
+    ax.set_title("Training and Validation MSE Loss")
+    train_line, = ax.plot([], [], label="Train MSE", color="blue")
+    val_line, = ax.plot([], [], label="Val MSE", color="orange")
+    ax.legend()
+
+    for epoch in range(epochs):
+        model.train()
+
+        # Forward pass
+        outputs = model(X_train).squeeze()
+        loss = criterion(outputs, y_train)
+
+        # Backward pass and optimization
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        # Compute training MSE
+        model.eval()
+        with torch.no_grad():
+            train_predictions = model(torch.tensor(X_train, dtype=torch.float32)).squeeze()
+            train_mse = criterion(train_predictions, y_train)
+
+        # Validation
+        val_predictions = model(torch.tensor(X_val, dtype=torch.float32)).detach().squeeze()
+        val_mse = criterion(val_predictions, y_val)
+
+        # Store metrics
+        train_mse_list.append(train_mse)
+        val_mse_list.append(val_mse)
+
+        # Update plot
+        train_line.set_xdata(range(len(train_mse_list)))
+        train_line.set_ydata(train_mse_list)
+        val_line.set_xdata(range(len(val_mse_list)))
+        val_line.set_ydata(val_mse_list)
+        ax.relim()
+        ax.autoscale_view()
+        plt.draw()
+        plt.pause(0.01)
+
+        # Print progress
+        if (epoch + 1) % 10 == 0:
+            print(f"Epoch [{epoch+1}/{epochs}], Loss: {loss.item():.4f}, "
+                  f"Train MSE: {train_mse:.4f}, Val MSE: {val_mse:.4f}")
+
+        # Save the best model
+        if val_mse < best_mse:
+            best_mse = val_mse
+            epochs_no_improve = 0
+            save_mlp_model(model, best_mse)
+            print("Model saved at", MODEL_PATH)
+        else:
+            epochs_no_improve += 1
+        if epochs_no_improve >= patience:
+            print("Early stopping triggered.")
+            break
+
+    plt.ioff()
+    plt.show()
+    plt.savefig("mlp_mse_training_plot.png")
+
 def train_margin_ranking(model, optimizer, margin, X_train, y_train, X_val, y_val, epochs):
+
     # Use MarginRankingLoss
     criterion = nn.MarginRankingLoss(margin=margin)
 
@@ -119,6 +205,7 @@ def train_margin_ranking(model, optimizer, margin, X_train, y_train, X_val, y_va
     plt.ioff()
     plt.show()
     plt.savefig("mlp_training_plot.png")
+
 def generate_pairs(X, y):
     """
     Generate all pairwise combinations of data and corresponding ranking labels.
