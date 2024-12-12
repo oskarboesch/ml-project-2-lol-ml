@@ -67,11 +67,16 @@ def load_encoded_data(data_type='normal'):
     ae_data = pd.read_csv(data_path / file_mapping[data_type]['ae'])
     vae_data = pd.read_csv(data_path / file_mapping[data_type]['vae'])
     if data_type != 'pca':
-        vae2_data = pd.read_csv(data_path / file_mapping[data_type]['vae2'], sep='\t').iloc[:, 1:]
+        ##vae2_file_path = data_path / file_mapping[data_type]['vae2']
+        ##vae2_file_path.chmod(0o644)  # Ensure read permissions
+        ##vae2_data = pd.read_csv(vae2_file_path, sep='\t').iloc[:, 1:]
+        vae2_data = None
+
     else:
         vae2_data = None
-    
-    return ae_data, vae_data, vae2_data
+    cgc_data = pd.read_csv(data_path / 'cgc_total.csv')
+    pca_data = pd.read_csv(data_path / 'pca_total.csv')
+    return ae_data, vae_data , cgc_data, pca_data
 
 def save_data(df_train, df_train_categorical, df_test, df_train_targets, df_total, cgc_train, cgc_test, pca_train, pca_test):
     """Save the preprocessed train, test and train targets data to a CSV file."""
