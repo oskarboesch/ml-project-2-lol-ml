@@ -138,16 +138,6 @@ def train_margin_ranking(model, optimizer, margin, X_train, y_train, X_val, y_va
     train_spearman_list = []
     val_spearman_list = []
 
-    # Initialize real-time plot
-    plt.ion()
-    fig, ax = plt.subplots()
-    ax.set_xlabel("Epochs")
-    ax.set_ylabel("Spearman Correlation")
-    ax.set_title("Training and Validation Spearman Correlation")
-    train_line, = ax.plot([], [], label="Train Spearman", color="blue")
-    val_line, = ax.plot([], [], label="Val Spearman", color="orange")
-    ax.legend()
-
     for epoch in range(epochs):
         model.train()
 
@@ -175,36 +165,33 @@ def train_margin_ranking(model, optimizer, margin, X_train, y_train, X_val, y_va
         train_spearman_list.append(train_spearman)
         val_spearman_list.append(val_spearman)
 
-        # Update plot
-        train_line.set_xdata(range(len(train_spearman_list)))
-        train_line.set_ydata(train_spearman_list)
-        val_line.set_xdata(range(len(val_spearman_list)))
-        val_line.set_ydata(val_spearman_list)
-        ax.relim()
-        ax.autoscale_view()
-        plt.draw()
-        plt.pause(0.01)
-
         # Print progress
         if (epoch + 1) % 10 == 0:
             print(f"Epoch [{epoch+1}/{epochs}], Loss: {loss.item():.4f}, "
                   f"Train Spearman: {train_spearman:.4f}, Val Spearman: {val_spearman:.4f}")
 
-        # Save the best model
         if val_spearman > best_spearman:
             best_spearman = val_spearman
             epochs_no_improve = 0
-            save_mlp_model(model, best_spearman)
-            print("Model saved at", MODEL_PATH)
         else:
             epochs_no_improve += 1
+
         if epochs_no_improve >= patience:
             print("Early stopping triggered.")
             break
 
-    plt.ioff()
-    plt.show()
+    # Plot metrics after training
+    plt.figure(figsize=(10, 6))
+    plt.plot(train_spearman_list, label="Train Spearman", color="blue")
+    plt.plot(val_spearman_list, label="Validation Spearman", color="orange")
+    plt.xlabel("Epochs")
+    plt.ylabel("Spearman Correlation")
+    plt.title("Training and Validation Spearman Correlation")
+    plt.legend()
     plt.savefig("mlp_training_plot.png")
+    plt.show()
+
+    print("Training complete. Final validation Spearman:", best_spearman)
 
 def generate_pairs(X, y):
     """
