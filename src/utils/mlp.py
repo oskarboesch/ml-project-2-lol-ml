@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import itertools
 from scipy.stats import spearmanr
+from sklearn.metrics import mean_squared_error
 from pathlib import Path
 import os
 from matplotlib import pyplot as plt
@@ -119,24 +120,24 @@ def train_mse(model, optimizer, X_train, y_train, X_val, y_val, epochs):
     plt.savefig("mlp_mse_training_plot.png")
 
 def train_margin_ranking(model, optimizer, margin, X_train, y_train, X_val, y_val, epochs):
+   
 
     # Use MarginRankingLoss
     criterion = nn.MarginRankingLoss(margin=margin)
-
-    # Convert data to tensors
-    X_train = torch.tensor(X_train, dtype=torch.float32)
-    y_train = torch.tensor(y_train, dtype=torch.float32)
 
     # Generate pairwise data
     X1, X2, y_pairs = generate_pairs(X_train, y_train)
 
     best_spearman = -float('inf')
-    patience = 100  # Number of epochs to wait before stopping
+    patience = 50  # Number of epochs to wait before stopping
     epochs_no_improve = 0
 
     # Initialize lists to store metrics
     train_spearman_list = []
     val_spearman_list = []
+
+    train_mse_list = []
+    val_mse_list = []
 
     for epoch in range(epochs):
         model.train()
@@ -154,16 +155,20 @@ def train_margin_ranking(model, optimizer, margin, X_train, y_train, X_val, y_va
         # Compute training Spearman
         model.eval()
         with torch.no_grad():
-            train_predictions = model(torch.tensor(X_train, dtype=torch.float32)).squeeze()
+            train_predictions = model(X_train).squeeze()
             train_spearman, _ = spearmanr(train_predictions.numpy(), y_train.numpy())
+            train_mse = mean_squared_error(train_predictions, y_train)
 
         # Validation
-        val_predictions = model(torch.tensor(X_val, dtype=torch.float32)).detach().squeeze()
+        val_predictions = model(X_val).detach().squeeze()
         val_spearman, _ = spearmanr(val_predictions, y_val)
+        val_mse = mean_squared_error(val_predictions, y_val)
 
         # Store metrics
         train_spearman_list.append(train_spearman)
         val_spearman_list.append(val_spearman)
+        train_mse_list.append(train_mse)
+        val_mse_list.append(val_mse)
 
         # Print progress
         if (epoch + 1) % 10 == 0:
@@ -173,12 +178,17 @@ def train_margin_ranking(model, optimizer, margin, X_train, y_train, X_val, y_va
         if val_spearman > best_spearman:
             best_spearman = val_spearman
             epochs_no_improve = 0
+            best_model = model
         else:
             epochs_no_improve += 1
 
         if epochs_no_improve >= patience:
             print("Early stopping triggered.")
             break
+
+    model = best_model
+            
+
 
     # Plot metrics after training
     plt.figure(figsize=(10, 6))
@@ -189,6 +199,16 @@ def train_margin_ranking(model, optimizer, margin, X_train, y_train, X_val, y_va
     plt.title("Training and Validation Spearman Correlation")
     plt.legend()
     plt.savefig("mlp_training_plot.png")
+    plt.show()
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(train_mse_list, label="Train MSE", color="blue")
+    plt.plot(val_mse_list, label="Validation MSE", color="orange")
+    plt.xlabel("Epochs")
+    plt.ylabel("MSE Loss")
+    plt.title("Training and Validation MSE Loss")
+    plt.legend()
+    plt.savefig("mlp_mse_training_plot.png")
     plt.show()
 
     print("Training complete. Final validation Spearman:", best_spearman)
