@@ -8,7 +8,7 @@ from sklearn.metrics import mean_squared_error
 import pandas as pd
 from matplotlib import pyplot as plt
 from sklearn.model_selection import ParameterGrid, train_test_split, KFold
-from utils.utils import set_random_seed
+from utils import set_random_seed
 
 
 FIGURES_PATH = '../../results/figures/'
@@ -212,7 +212,7 @@ def evaluate_model(model, data_train,label_train, data_test, label_test, best_pa
     return test_spearman, test_mse
 
 
-def plot_results(results_df, param_grid, title = 'RankMLP Validation Results'):
+def plot_results(results_df, param_grid, title = 'RankMLP Validation Results', big_font = False):
     # Generate all combinations of the parameter grid
     param_combinations = list(itertools.product(*param_grid.values()))
 
@@ -221,7 +221,18 @@ def plot_results(results_df, param_grid, title = 'RankMLP Validation Results'):
 
     # Plot Spearman scores
     plt.figure(figsize=(12, 6))
-    plt.title(title + ' - Spearman')
+    if big_font:
+        plt.rcParams.update({
+        'font.size': 20,  # General font size
+        'axes.titlesize': 24,  # Title font size
+        'axes.labelsize': 22,  # Axis label font size
+        'xtick.labelsize': 20,  # X-axis tick label font size
+        'ytick.labelsize': 20,  # Y-axis tick label font size
+        'legend.fontsize': 18,  # Legend font size
+        'legend.title_fontsize': 20,  # Legend title font size
+        })  
+    else :
+        plt.title(title + ' - Spearman')
 
     # Iterate over each parameter combination and its index
     for param_index, param_combination in enumerate(param_combinations):
@@ -267,7 +278,19 @@ def plot_results(results_df, param_grid, title = 'RankMLP Validation Results'):
 
     # Plot MSE scores
     plt.figure(figsize=(12, 6))
-    plt.title(title + ' - MSE')
+
+    if big_font:
+        plt.rcParams.update({
+        'font.size': 20,  # General font size
+        'axes.titlesize': 24,  # Title font size
+        'axes.labelsize': 22,  # Axis label font size
+        'xtick.labelsize': 20,  # X-axis tick label font size
+        'ytick.labelsize': 20,  # Y-axis tick label font size
+        'legend.fontsize': 18,  # Legend font size
+        'legend.title_fontsize': 20,  # Legend title font size
+        })  
+    else :
+        plt.title(title + ' - MSE')
 
     # Iterate over each parameter combination and its index (same code as before)
     for param_index, param_combination in enumerate(param_combinations):
