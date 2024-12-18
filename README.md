@@ -4,11 +4,11 @@
 
 ### Overview 
 
-The project aims to build a model to predict durg responses using cancer genomic data. 
+The project aims to build a model to predict drug responses using cancer genomic data. 
 
 #### Dataset 
 
-* train.csv: The training dataset contains rows representing different cancer cell line and columns representing various genes. Each value corresponds to the gene expression level in a specific cancer cell line.
+* train.csv: The training dataset contains rows representing different cancer cell lines and columns representing various genes. Each value corresponds to the gene expression level in a specific cancer cell line.
 
 * train_targets.csv: This file includes the labels for the training data. The "AAC" column indicates the response of the cell lines to the drug Erlotinib, where a higher AAC value reflects a better response. Additionally, the "tissue" column identifies the type of cancer cell line. 
 
@@ -16,9 +16,9 @@ The project aims to build a model to predict durg responses using cancer genomic
 
 #### Analyses 
 
-1. **Data exploration** (notebook : data_exploration): Descriptive Statistics, Data Visualization, Missing Data Analysis, Correlation Analysis
-2. **Data augmentation**(notebook : data_augementation): As our data set is small by having only 742 different cell lines and 19921 genes, we tried to add genomic data from another field collecting AAC values for similar genes in other cell lines. 
-3. **Tissue_analyses** (notebook : tissue_analysis): We perform an analysis by tissues, by training models on only cell-line in the same tissue. We also apply a CGC dataset to filter our genes in each cell line.
+1. **Data exploration** (`data_exploration.ipynb`): Descriptive Statistics, Data Visualization, Missing Data Analysis, Correlation Analysis
+2. **Data augmentation** (`data_augmentation.ipynb`): As our data set is small by having only 742 different cell lines and 19921 genes, we tried to add genomic data from another field collecting AAC values for similar genes in other cell lines. 
+3. **Tissue analyses** (`tissue_dependent.ipynb`): We perform an analysis by tissues, by training models on only cell-line in the same tissue. We also apply a CGC dataset to filter our genes in each cell line.
 
 ### Model Architecture
 
@@ -26,17 +26,16 @@ Raw Data → Data Preprocessing → Feature Selection (PCA/CGC/VAE/AE) → Model
 
 The model architecture involves several steps, including data preprocessing, feature selection, and the application of machine learning algorithms. We experimented with various models such as linear regression, random forest, and neural networks to identify the best-performing model for predicting drug responses.
 
-1. **Data Preprocessing**: This step includes handling missing values and normalizing the data.
+1. **Data Preprocessing**: This step includes handling missing values and normalizing the data. (`data_exploration.ipynb`)
 2. **Feature Selection**: We used various encoding techniques to transform the data into a more suitable format for modeling. This includes:
-   - **Autoencoders (AE)**: To reduce the dimensionality of the data while preserving important features.
-   - **Variational Autoencoders (VAE)**: To capture the underlying distribution of the data.
-   - **Principal Component Analysis (PCA)**: To reduce the dimensionality by transforming the data into a set of orthogonal components.
-   - **Cancer Gene Census (CGC)**: To filter and select the most relevant genes for each cell line.
-4. **Model Selection**: We experimented with different models including:
-   - **Linear Regression**: A simple model to establish a baseline.
-   - **Random Forest**: An ensemble method that uses multiple decision trees.
-   - **Neural Networks**: Specifically, Multi-Layer Perceptrons (MLP) for capturing complex patterns in the data.
-
+   - **Autoencoders (AE)**: To reduce the dimensionality of the data while preserving important features. (`auto_encoder.ipynb`)
+   - **Variational Autoencoders (VAE)**: To capture the underlying distribution of the data. (`vae.py`)
+   - **Principal Component Analysis (PCA)**: To reduce the dimensionality by transforming the data into a set of orthogonal components. (`data_exploration.ipynb`)
+   - **Cancer Gene Census (CGC)**: To filter and select the most relevant genes for each cell line. (`tissue_dependent.ipynb`)
+3. **Model Selection**: We experimented with different models including:
+   - **Linear Regression**: A simple model to establish a baseline. (`evaluation.ipynb`)
+   - **Random Forest**: An ensemble method that uses multiple decision trees. (`tissue_dependent.ipynb` and `evaluation.ipynb`)
+   - **Neural Networks**: Specifically, Multi-Layer Perceptrons (MLP) for capturing complex patterns in the data. (`mlp.ipynb`)
 
 ### Model Performance
 
@@ -45,7 +44,7 @@ In this project, we primarily focus on one evaluation metric: **the Spearman sco
 - Measure of the monotonic relationship between two variables
 - Rank between -1 and 1 
 
-2. **Training and Validation**: We used cross-validation to ensure the robustness of our models. The data was split into training and validation sets to evaluate the performance of the models.
+2. **Training and Validation**: We used cross-validation to ensure the robustness of our models. The data was split into training and validation sets to evaluate the performance of the models.(`evaluation.ipynb`)
 
 ### Results
 
