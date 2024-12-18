@@ -22,7 +22,7 @@ The project aims to build a model to predict durg responses using cancer genomic
 
 ### Model Architecture
 
-Raw Data → Data Preprocessing → Feature Selection (PCA/CGC/AE) → Model Training (Linear Regression, RF, MLP) → Evaluation  
+Raw Data → Data Preprocessing → Feature Selection (PCA/CGC/VAE/AE) → Model Training (Linear Regression, RF, MLP) → Evaluation  
 
 The model architecture involves several steps, including data preprocessing, feature selection, and the application of machine learning algorithms. We experimented with various models such as linear regression, random forest, and neural networks to identify the best-performing model for predicting drug responses.
 
