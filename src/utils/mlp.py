@@ -1,218 +1,18 @@
 import torch
 import torch.nn as nn
 import itertools
+import numpy as np
 from scipy.stats import spearmanr
+from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.metrics import mean_squared_error
-from pathlib import Path
-import os
+import pandas as pd
 from matplotlib import pyplot as plt
-
-project_root = Path(__file__).resolve().parent.parent.parent
-MODEL_PATH = project_root / 'models' / 'mlp'
-
-# Check if folder exists
-if not Path(MODEL_PATH).exists():
-    Path(MODEL_PATH).mkdir(parents=True)
-
-class MLP(nn.Module):
-    def __init__(self, input_size, hidden_layers):
-        super(MLP, self).__init__()
-        layers = []
-        current_size = input_size
-
-        # Add hidden layers
-        for hidden_size in hidden_layers:
-            layers.append(nn.Linear(current_size, hidden_size))
-            layers.append(nn.Dropout(p=0.5))  # Dropout with 50% probability
-
-            layers.append(nn.ReLU())  # Using ReLU activation
-            current_size = hidden_size
-
-        # Final single output
-        layers.append(nn.Linear(current_size, 1))  # Output one score per input
-        self.model = nn.Sequential(*layers)
-
-    def forward(self, x):
-        return self.model(x)
-    
-
-def train_mse(model, optimizer, X_train, y_train, X_val, y_val, epochs):
-    # Use Mean Squared Error loss
-    criterion = nn.MSELoss()
-    
-    # Convert data to tensors
-    X_train = torch.tensor(X_train, dtype=torch.float32)
-    y_train = torch.tensor(y_train, dtype=torch.float32)
-
-    best_mse = float('inf')
-    patience = 100  # Number of epochs to wait before stopping
-    epochs_no_improve = 0
-
-    # Initialize lists to store metrics
-    train_mse_list = []
-    val_mse_list = []
-    
-    # Initialize real-time plot
-    plt.ion()
-    fig, ax = plt.subplots()
-    ax.set_xlabel("Epochs")
-    ax.set_ylabel("MSE Loss")
-    ax.set_title("Training and Validation MSE Loss")
-    train_line, = ax.plot([], [], label="Train MSE", color="blue")
-    val_line, = ax.plot([], [], label="Val MSE", color="orange")
-    ax.legend()
-
-    for epoch in range(epochs):
-        model.train()
-
-        # Forward pass
-        outputs = model(X_train).squeeze()
-        loss = criterion(outputs, y_train)
-
-        # Backward pass and optimization
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-        # Compute training MSE
-        model.eval()
-        with torch.no_grad():
-            train_predictions = model(torch.tensor(X_train, dtype=torch.float32)).squeeze()
-            train_mse = criterion(train_predictions, y_train)
-
-        # Validation
-        val_predictions = model(torch.tensor(X_val, dtype=torch.float32)).detach().squeeze()
-        val_mse = criterion(val_predictions, y_val)
-
-        # Store metrics
-        train_mse_list.append(train_mse)
-        val_mse_list.append(val_mse)
-
-        # Update plot
-        train_line.set_xdata(range(len(train_mse_list)))
-        train_line.set_ydata(train_mse_list)
-        val_line.set_xdata(range(len(val_mse_list)))
-        val_line.set_ydata(val_mse_list)
-        ax.relim()
-        ax.autoscale_view()
-        plt.draw()
-        plt.pause(0.01)
-
-        # Print progress
-        if (epoch + 1) % 10 == 0:
-            print(f"Epoch [{epoch+1}/{epochs}], Loss: {loss.item():.4f}, "
-                  f"Train MSE: {train_mse:.4f}, Val MSE: {val_mse:.4f}")
-
-        # Save the best model
-        if val_mse < best_mse:
-            best_mse = val_mse
-            epochs_no_improve = 0
-            save_mlp_model(model, best_mse)
-            print("Model saved at", MODEL_PATH)
-        else:
-            epochs_no_improve += 1
-        if epochs_no_improve >= patience:
-            print("Early stopping triggered.")
-            break
-
-    plt.ioff()
-    plt.show()
-    plt.savefig("mlp_mse_training_plot.png")
-
-def train_margin_ranking(model, optimizer, margin, X_train, y_train, X_val, y_val, epochs):
-   
-
-    # Use MarginRankingLoss
-    criterion = nn.MarginRankingLoss(margin=margin)
-
-    # Generate pairwise data
-    X1, X2, y_pairs = generate_pairs(X_train, y_train)
-
-    best_spearman = -float('inf')
-    patience = 50  # Number of epochs to wait before stopping
-    epochs_no_improve = 0
-
-    # Initialize lists to store metrics
-    train_spearman_list = []
-    val_spearman_list = []
-
-    train_mse_list = []
-    val_mse_list = []
-
-    for epoch in range(epochs):
-        model.train()
-
-        # Forward pass
-        outputs1 = model(X1).squeeze()  # Predictions for first set
-        outputs2 = model(X2).squeeze()  # Predictions for second set
-        loss = criterion(outputs1, outputs2, y_pairs)
-
-        # Backward pass and optimization
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-        # Compute training Spearman
-        model.eval()
-        with torch.no_grad():
-            train_predictions = model(X_train).squeeze()
-            train_spearman, _ = spearmanr(train_predictions.numpy(), y_train.numpy())
-            train_mse = mean_squared_error(train_predictions, y_train)
-
-        # Validation
-        val_predictions = model(X_val).detach().squeeze()
-        val_spearman, _ = spearmanr(val_predictions, y_val)
-        val_mse = mean_squared_error(val_predictions, y_val)
-
-        # Store metrics
-        train_spearman_list.append(train_spearman)
-        val_spearman_list.append(val_spearman)
-        train_mse_list.append(train_mse)
-        val_mse_list.append(val_mse)
-
-        # Print progress
-        if (epoch + 1) % 10 == 0:
-            print(f"Epoch [{epoch+1}/{epochs}], Loss: {loss.item():.4f}, "
-                  f"Train Spearman: {train_spearman:.4f}, Val Spearman: {val_spearman:.4f}")
-
-        if val_spearman > best_spearman:
-            best_spearman = val_spearman
-            epochs_no_improve = 0
-            best_model = model
-        else:
-            epochs_no_improve += 1
-
-        if epochs_no_improve >= patience:
-            print("Early stopping triggered.")
-            break
-
-    model = best_model
-            
+from sklearn.model_selection import ParameterGrid, train_test_split, KFold
+from utils.utils import set_random_seed
 
 
-    # Plot metrics after training
-    plt.figure(figsize=(10, 6))
-    plt.plot(train_spearman_list, label="Train Spearman", color="blue")
-    plt.plot(val_spearman_list, label="Validation Spearman", color="orange")
-    plt.xlabel("Epochs")
-    plt.ylabel("Spearman Correlation")
-    plt.title("Training and Validation Spearman Correlation")
-    plt.legend()
-    plt.savefig("mlp_training_plot.png")
-    plt.show()
-
-    plt.figure(figsize=(10, 6))
-    plt.plot(train_mse_list, label="Train MSE", color="blue")
-    plt.plot(val_mse_list, label="Validation MSE", color="orange")
-    plt.xlabel("Epochs")
-    plt.ylabel("MSE Loss")
-    plt.title("Training and Validation MSE Loss")
-    plt.legend()
-    plt.savefig("mlp_mse_training_plot.png")
-    plt.show()
-
-    print("Training complete. Final validation Spearman:", best_spearman)
-
+FIGURES_PATH = '../../results/figures/'
+#Generate pairs for MarginRankingLoss
 def generate_pairs(X, y):
     """
     Generate all pairwise combinations of data and corresponding ranking labels.
@@ -223,27 +23,296 @@ def generate_pairs(X, y):
         X1, X2: Pairwise feature tensors
         y_pairs: Pairwise ranking labels (+1 or -1)
     """
+    set_random_seed(42)
     pairs = list(itertools.combinations(range(len(y)), 2))  # Generate index pairs
     X1 = torch.stack([X[i] for i, j in pairs])
     X2 = torch.stack([X[j] for i, j in pairs])
     y_pairs = torch.tensor([1 if y[i] > y[j] else -1 for i, j in pairs], dtype=torch.float32)
     return X1, X2, y_pairs
 
-def save_mlp_model(model, spearman_score):
-    """
-    Saves the model with the Spearman score in the file name.
-    
-    Parameters:
-    - model: The model to save.
-    - spearman_score: The Spearman correlation score (float).
-    """
-    score_str = f"{spearman_score:.4f}"  # Format the score to 4 digits
-    score = score_str.replace('.', '_')  # Convert x_xxx to float
-    model_path = os.path.join(MODEL_PATH, f"mlp_model_{score}.pth")
-    torch.save(model, model_path)
-    print(f"\033[92mModel saved at {model_path}\033[0m")
-    return model_path
 
-def load_mlp_model(file_name):
-    model_path = os.path.join(MODEL_PATH, file_name)
-    return torch.load(model_path)
+class RankMLP(BaseEstimator, RegressorMixin):
+    def __init__(self, input_size, hidden_layers=(64, 32), learning_rate=1e-3, weight_decay=1e-5, margin=0.5, epochs=100, patience=10):
+        self.input_size = input_size
+        self.hidden_layers = hidden_layers
+        self.learning_rate = learning_rate
+        self.weight_decay = weight_decay
+        self.margin = margin
+        self.epochs = epochs
+        self.patience = patience
+        self.model = None
+
+    def _build_model(self):
+        layers = []
+        current_size = self.input_size
+        for hidden_size in self.hidden_layers:
+            layers.append(nn.Linear(current_size, hidden_size))
+            layers.append(nn.ReLU())
+            layers.append(nn.Dropout(p=0.5))
+            current_size = hidden_size
+        layers.append(nn.Linear(current_size, 1))
+        return nn.Sequential(*layers)
+
+    def fit(self, X, y, X_val, y_val, verbose=False):
+        set_random_seed(42)
+        # Prepare training data
+        X_tensor = torch.tensor(X, dtype=torch.float32)
+        y_tensor = torch.tensor(y, dtype=torch.float32)
+        X1, X2, y_pairs = generate_pairs(X_tensor, y_tensor)
+
+        X_val = torch.tensor(X_val, dtype=torch.float32)
+        y_val = torch.tensor(y_val, dtype=torch.float32)
+
+        # Initialize model, optimizer, and loss function
+        self.model = self._build_model()
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
+        criterion = nn.MarginRankingLoss(margin=self.margin)
+
+        # Early stopping variables
+        best_val_spearman = -np.inf
+        best_model = None
+        epochs_no_improve = 0
+
+        # Metrics storage
+        train_spearman_list = []
+        val_spearman_list = []
+        train_mse_list = []
+        val_mse_list = []
+
+        for epoch in range(self.epochs):
+            # Training
+            self.model.train()
+            outputs1 = self.model(X1).squeeze()
+            outputs2 = self.model(X2).squeeze()
+            loss = criterion(outputs1, outputs2, y_pairs)
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            # Evaluation
+            self.model.eval()
+            with torch.no_grad():
+                train_predictions = self.model(X_tensor).squeeze().numpy()
+                train_spearman, _ = spearmanr(train_predictions, y)
+                train_mse = mean_squared_error(train_predictions, y)
+                train_spearman_list.append(train_spearman)
+                train_mse_list.append(train_mse)
+
+                val_predictions = self.model(X_val).squeeze().numpy()
+                val_spearman, _ = spearmanr(val_predictions, y_val)
+                val_mse = mean_squared_error(val_predictions, y_val)
+                val_spearman_list.append(val_spearman)
+                val_mse_list.append(val_mse)
+
+                # Early stopping logic
+                if val_spearman > best_val_spearman:
+                    best_val_spearman = val_spearman
+                    best_model = self.model.state_dict()
+                    epochs_no_improve = 0
+                else:
+                    epochs_no_improve += 1
+
+                if epochs_no_improve >= self.patience:
+                    if verbose:
+                        print(f"Early stopping at epoch {epoch+1}")
+                    break
+
+                if epoch % 10 == 0 and verbose:
+                    print(f"Epoch {epoch+1}/{self.epochs} - Train Spearman: {train_spearman:.4f} - Validation Spearman: {val_spearman:.4f}")
+
+        # Restore the best model
+        self.model.load_state_dict(best_model)
+        if verbose:
+            print(f"Best validation Spearman: {best_val_spearman:.4f}")
+
+
+        return train_spearman_list, val_spearman_list, train_mse_list, val_mse_list, best_val_spearman
+
+    
+    def predict(self, X):
+        self.model.eval()
+        with torch.no_grad():
+            return self.model(torch.tensor(X, dtype=torch.float32)).squeeze().numpy()
+    
+def grid_search(data_train, label_train, data_test, label_test, param_grid, cv=3, evaluate=True, verbose=False):
+    # Store all results in a list of dictionaries
+    all_results = []
+    params_best_spearman = []
+
+    for params in ParameterGrid(param_grid):
+        if verbose:
+            print(f"Training with parameters: {params}")
+
+        # Initialize KFold cross-validation
+        kf = KFold(n_splits=cv, random_state=42, shuffle=True)
+
+        fold_best_spearman = []
+        fold_results = []  # Store results per fold
+        for fold_idx, (train_index, val_index) in enumerate(kf.split(data_train)):
+            # Split train and validation data
+            X_train, X_val = data_train[train_index], data_train[val_index]
+            y_train, y_val = label_train[train_index], label_train[val_index]
+
+            set_random_seed(42)
+            # Set model parameters
+            model = RankMLP(data_train.shape[1])
+            model.set_params(**params)
+
+            # Train the model and return metrics
+            train_spearman, val_spearman, train_mse, val_mse, best_spearman = model.fit(X_train, y_train, X_val, y_val)
+
+            # Append results for this fold
+            fold_results.append({
+                'params': params,
+                'fold': fold_idx + 1,
+                'train_spearman': train_spearman,
+                'val_spearman': val_spearman,
+                'train_mse': train_mse,
+                'val_mse': val_mse,
+                'best_spearman': best_spearman
+            })
+
+            if verbose:
+                print(f"Fold {fold_idx + 1}/{cv}: Val Spearman: {best_spearman:.4f}")
+            
+            fold_best_spearman.append(best_spearman)
+
+        params_best_spearman.append(np.mean(fold_best_spearman))
+
+
+        # Add results to the master list
+        all_results.extend(fold_results)
+
+    # Convert all results to a DataFrame for easy plotting
+    results_df = pd.DataFrame(all_results)
+
+    # Find the best parameter set based on average Spearman score
+    best_params = list(ParameterGrid(param_grid))[np.argmax(params_best_spearman)]
+    # Evaluate the model on the test set using the best parameters
+    if evaluate:
+        test_spearman, test_mse = evaluate_model(model, data_train, label_train, data_test, label_test, best_params)
+
+    return results_df, best_params, test_spearman, test_mse
+
+def evaluate_model(model, data_train,label_train, data_test, label_test, best_params):
+    print("--- Evaluating model on test set...")
+    set_random_seed(42)
+    # Final Evaluation
+    model.set_params(**best_params)
+    # Define val for early stopping
+    X_train, X_val, y_train, y_val = train_test_split(data_train, label_train, test_size=0.4, random_state=42)
+    model.fit(X_train, y_train, X_val, y_val, verbose=True)
+
+    # evaluate on test set
+    y_pred = model.predict(data_test)
+    test_spearman, _ = spearmanr(y_pred, label_test)
+    test_mse = mean_squared_error(y_pred, label_test)
+    print(f"With parameters : {best_params} - Test Spearman: {test_spearman:.4f} - Test MSE: {test_mse:.4f}")
+    return test_spearman, test_mse
+
+
+def plot_results(results_df, param_grid, title = 'RankMLP Validation Results'):
+    # Generate all combinations of the parameter grid
+    param_combinations = list(itertools.product(*param_grid.values()))
+
+    # Generate a color map based on the number of unique parameter combinations
+    color_map = plt.cm.plasma(np.linspace(0, 1, len(param_combinations)))
+
+    # Plot Spearman scores
+    plt.figure(figsize=(12, 6))
+    plt.title(title + ' - Spearman')
+
+    # Iterate over each parameter combination and its index
+    for param_index, param_combination in enumerate(param_combinations):
+        # Convert tuple to dictionary for the parameter combination
+        param_tuple_dict = {
+            'hidden_layers': param_combination[0],
+            'learning_rate': param_combination[1],
+            'weight_decay': param_combination[2],
+            'epochs': param_combination[3],
+            'patience': param_combination[4]
+        }
+
+        color = color_map[param_index]
+
+        # Filter data for the current parameter combination
+        param_data = results_df[results_df['params'].apply(lambda x: x == param_tuple_dict)]
+
+        # Iterate over the folds and plot the corresponding data for each parameter combination
+        for fold in param_data['fold'].unique():
+            fold_data = param_data[param_data['fold'] == fold]
+
+            epochs = np.arange(1, len(fold_data['train_spearman'].values[0]) + 1)
+            plt.plot(np.log(epochs), fold_data['train_spearman'].values[0], color=color, linestyle='-', alpha=0.7)
+            plt.plot(np.log(epochs), fold_data['val_spearman'].values[0], color=color, linestyle='--', alpha=0.7)
+
+    # Add a custom legend with labels for train and validation
+    train_patch = plt.Line2D([0], [0], color='black', linestyle='-', alpha=0.7, label='Train')
+    val_patch = plt.Line2D([0], [0], color='black', linestyle='--', alpha=0.7, label='Validation')
+
+    # Create legend handles for parameter combinations (one handle per parameter combination)
+    param_legend_handles = [plt.Line2D([0], [0], color=color, lw=2) for color in color_map]
+    param_legend_labels = [str(param_comb) for param_comb in param_combinations]
+
+    # Combine both train/validation and parameter combinations in the legend
+    plt.legend(handles=[train_patch, val_patch] + param_legend_handles,
+               labels=['Train', 'Validation'] + param_legend_labels,
+               title='Parameter Combinations', bbox_to_anchor=(1.05, 1), loc='upper left')
+
+    plt.xlabel('Log(Epoch)')
+    plt.ylabel('Spearman')
+    plt.savefig(FIGURES_PATH + title + ' - Spearman.png')
+    plt.show()
+
+    # Plot MSE scores
+    plt.figure(figsize=(12, 6))
+    plt.title(title + ' - MSE')
+
+    # Iterate over each parameter combination and its index (same code as before)
+    for param_index, param_combination in enumerate(param_combinations):
+        # Convert tuple to dictionary for the parameter combination
+        param_tuple_dict = {
+            'hidden_layers': param_combination[0],
+            'learning_rate': param_combination[1],
+            'weight_decay': param_combination[2],
+            'epochs': param_combination[3],
+            'patience': param_combination[4]
+        }
+
+        color = color_map[param_index]
+
+        # Filter data for the current parameter combination
+        param_data = results_df[results_df['params'].apply(lambda x: x == param_tuple_dict)]
+
+        # Iterate over the folds and plot the corresponding data for each parameter combination
+        for fold in param_data['fold'].unique():
+            fold_data = param_data[param_data['fold'] == fold]
+
+            # Plot training and validation MSE scores
+            epochs = np.arange(1, len(fold_data['train_spearman'].values[0]) + 1)
+            plt.plot(np.log(epochs), fold_data['train_mse'].values[0], color=color, linestyle='-', alpha=0.7)
+            plt.plot(np.log(epochs), fold_data['val_mse'].values[0], color=color, linestyle='--', alpha=0.7)
+
+
+    # Add a custom legend with labels for train and validation
+    mse_train_patch = plt.Line2D([0], [0], color='black', linestyle='-', alpha=0.7, label='Train')
+    mse_val_patch = plt.Line2D([0], [0], color='black', linestyle='--', alpha=0.7, label='Validation')
+
+    # Create legend handles for parameter combinations (one handle per parameter combination)
+    mse_param_legend_handles = [plt.Line2D([0], [0], color=color, lw=2) for color in color_map]
+    mse_param_legend_labels = [str(param_comb) for param_comb in param_combinations]
+
+    # Combine both train/validation and parameter combinations in the legend
+    plt.legend(handles=[mse_train_patch, mse_val_patch] + mse_param_legend_handles,
+               labels=['Train', 'Validation'] + mse_param_legend_labels,
+               title='Parameter Combinations', bbox_to_anchor=(1.05, 1), loc='upper left')
+
+    plt.xlabel('Log(Epoch)')
+    plt.ylabel('MSE')
+    plt.savefig(FIGURES_PATH + title + ' - MSE.png')
+    plt.show()
+    
+
+
+        
