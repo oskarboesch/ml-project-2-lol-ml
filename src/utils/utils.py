@@ -26,7 +26,7 @@ def load_data(raw = True, categorical = False):
         train_path = folder_path / 'train.csv'
     return pd.read_csv(train_path), pd.read_csv(folder_path / 'test.csv'), pd.read_csv(folder_path / 'train_targets.csv')
 
-def load_encoded_data(data_type='normal'):
+def load_encoded_data():
     """
     Load the encoded data from the preprocessed folder based on the specified data type.
 
@@ -41,39 +41,9 @@ def load_encoded_data(data_type='normal'):
     sys.path.append(str(project_root))
     data_path = project_root / 'data' / 'encoded'
     
-    # Define file mappings based on data_type
-    file_mapping = {
-        'normal': {
-            'ae': 'ae_data_normal.csv',
-            'vae': 'vae_data_normal.csv',
-            'vae2': 'vae2_data_normal.tsv',
-        },
-        'pca': {
-            'ae': 'ae_data_pca.csv',
-            'vae': 'vae_data_pca.csv',
-            'vae2': 'vae2_data_pca.tsv',
-        },
-        'cgc': {
-            'ae': 'ae_data_cgc.csv',
-            'vae': 'vae_data_cgc.csv',
-            'vae2': 'vae2_data_cgc.tsv',
-        },
-    }
-    
-    if data_type not in file_mapping:
-        raise ValueError("Invalid data_type specified. Choose from 'normal', 'pca', or 'cgc'.")
-    
     # Load datasets
-    ae_data = pd.read_csv(data_path / file_mapping[data_type]['ae'])
-    vae_data = pd.read_csv(data_path / file_mapping[data_type]['vae'])
-    if data_type != 'pca':
-        ##vae2_file_path = data_path / file_mapping[data_type]['vae2']
-        ##vae2_file_path.chmod(0o644)  # Ensure read permissions
-        ##vae2_data = pd.read_csv(vae2_file_path, sep='\t').iloc[:, 1:]
-        vae2_data = None
-
-    else:
-        vae2_data = None
+    ae_data = pd.read_csv(data_path / 'ae_data_normal.csv')
+    vae_data = pd.read_csv(data_path / 'vae_data_normal.csv')
     cgc_data = pd.read_csv(data_path / 'cgc_total.csv')
     pca_data = pd.read_csv(data_path / 'pca_total.csv')
     return ae_data, vae_data , cgc_data, pca_data
@@ -84,20 +54,21 @@ def save_data(df_train, df_train_categorical, df_test, df_train_targets, df_tota
     print("Saving preprocessed data to csv...")
     project_root = Path(__file__).resolve().parent.parent.parent
     sys.path.append(str(project_root))
-    data_path = project_root / 'data' / 'preprocessed'
-    df_train.to_csv(data_path / 'train.csv', index=False)
-    df_train_categorical.to_csv(data_path / 'train_categorical.csv', index=False)
-    df_test.to_csv(data_path / 'test.csv', index=False)
-    df_train_targets.to_csv(data_path / 'train_targets.csv', index=False)
-    df_total.to_csv(data_path / 'total_data.csv', index=False)
-    cgc_train.to_csv(data_path / 'cgc_train.csv', index=False)
-    cgc_test.to_csv(data_path / 'cgc_test.csv', index=False)
+    preproc_data_path = project_root / 'data' / 'preprocessed'
+    encoded_data_path = project_root / 'data' / 'encoded'
+    df_train.to_csv(preproc_data_path / 'train.csv', index=False)
+    df_train_categorical.to_csv(preproc_data_path / 'train_categorical.csv', index=False)
+    df_test.to_csv(preproc_data_path / 'test.csv', index=False)
+    df_train_targets.to_csv(preproc_data_path / 'train_targets.csv', index=False)
+    df_total.to_csv(preproc_data_path / 'total_data.csv', index=False)
+    cgc_train.to_csv(encoded_data_path / 'cgc_train.csv', index=False)
+    cgc_test.to_csv(encoded_data_path / 'cgc_test.csv', index=False)
     cgc_total = pd.concat([cgc_train, cgc_test], axis=0)
-    cgc_total.to_csv(data_path / 'cgc_total.csv', index=False)
-    pca_train.to_csv(data_path / 'pca_train.csv', index=False)
-    pca_test.to_csv(data_path / 'pca_test.csv', index=False)
+    cgc_total.to_csv(encoded_data_path / 'cgc_total.csv', index=False)
+    pca_train.to_csv(encoded_data_path / 'pca_train.csv', index=False)
+    pca_test.to_csv(encoded_data_path / 'pca_test.csv', index=False)
     pca_total = pd.concat([pca_train, pca_test], axis=0)
-    pca_total.to_csv(data_path / 'pca_total.csv', index=False)
+    pca_total.to_csv(encoded_data_path / 'pca_total.csv', index=False)
     print("Preprocessed data saved to csv.")
 
 def save_to_tsv(df_total, cgc_train, cgc_test, pca_train, pca_test):
@@ -105,14 +76,15 @@ def save_to_tsv(df_total, cgc_train, cgc_test, pca_train, pca_test):
     # Save in tsv format as well
     project_root = Path(__file__).resolve().parent.parent.parent
     sys.path.append(str(project_root))
-    data_path = project_root / 'data' / 'preprocessed' 
+    preproc_data_path = project_root / 'data' / 'preprocessed'
+    encoded_data_path = project_root / 'data' / 'encoded'
 
     cgc_total = pd.concat([cgc_train, cgc_test], axis=0)
     pca_total = pd.concat([pca_train, pca_test], axis=0)
 
-    df_total.to_csv(data_path / 'total_data.tsv', sep='\t', index=False)
-    cgc_total.to_csv(data_path / 'cgc_total.tsv', sep='\t', index=False)
-    pca_total.to_csv(data_path / 'pca_total.tsv', sep='\t', index=False)
+    df_total.to_csv(preproc_data_path / 'total_data.tsv', sep='\t', index=False)
+    cgc_total.to_csv(encoded_data_path / 'cgc_total.tsv', sep='\t', index=False)
+    pca_total.to_csv(encoded_data_path / 'pca_total.tsv', sep='\t', index=False)
     print("Preprocessed data saved to tsv.")
 
 
