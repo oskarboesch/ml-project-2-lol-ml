@@ -22,20 +22,21 @@ The project aims to build a model to predict drug responses using cancer genomic
 
 ### Model Architecture
 
-Raw Data → Data Preprocessing → Feature Selection (PCA/CGC/VAE/AE) → Model Training (Linear Regression, RF, MLP) → Evaluation  
+Raw Data → Data Preprocessing → Feature Selection (PCA/CGC/VAE/AE) → Model Training (Linear Regression, RF, MLP) → Evaluation → Final Predictions
 
 The model architecture involves several steps, including data preprocessing, feature selection, and the application of machine learning algorithms. We experimented with various models such as linear regression, random forest, and neural networks to identify the best-performing model for predicting drug responses.
 
-1. **Data Preprocessing**: This step includes handling missing values and normalizing the data. (`data_exploration.ipynb`)
+1. **Data Preprocessing**: This step includes handling missing values and normalizing the data. (`run_preprocess.py`)
 2. **Feature Selection**: We used various encoding techniques to transform the data into a more suitable format for modeling. This includes:
-   - **Autoencoders (AE)**: To reduce the dimensionality of the data while preserving important features. (`auto_encoder.ipynb`)
-   - **Variational Autoencoders (VAE)**: To capture the underlying distribution of the data. (`vae.py`)
-   - **Principal Component Analysis (PCA)**: To reduce the dimensionality by transforming the data into a set of orthogonal components. (`data_exploration.ipynb`)
-   - **Cancer Gene Census (CGC)**: To filter and select the most relevant genes for each cell line. (`tissue_dependent.ipynb`)
+   - **Autoencoders (AE)**: To reduce the dimensionality of the data while preserving important features. (`auto_encoder.ipynb` + `vae.py` )
+   - **Variational Autoencoders (VAE)**: To capture the underlying distribution of the data. (`auto_encoder.ipynb` + `vae.py` )
+   - **Principal Component Analysis (PCA)**: To reduce the dimensionality by transforming the data into a set of orthogonal components. (`data_exploration.ipynb` + `run_preprocess.py`)
+   - **Cancer Gene Census (CGC)**: To filter and select the most relevant genes for each cell line. (`run_preprocess.py`)
 3. **Model Selection**: We experimented with different models including:
    - **Linear Regression**: A simple model to establish a baseline. (`evaluation.ipynb`)
-   - **Random Forest**: An ensemble method that uses multiple decision trees. (`tissue_dependent.ipynb` and `evaluation.ipynb`)
+   - **Random Forest**: An ensemble method that uses multiple decision trees.
    - **Neural Networks**: Specifically, Multi-Layer Perceptrons (MLP) for capturing complex patterns in the data. (`mlp.ipynb`)
+4. **Final Predictions** : Final Predictions from the selected models on test.csv. (`run.py`)
 
 ### Model Performance
 
@@ -48,7 +49,7 @@ In this project, we primarily focus on one evaluation metric: **the Spearman sco
 
 ### Results
 
-The final model achieved a Spearman score of X.XX on the test dataset, indicating a X relationship between the predicted and actual drug responses. Additionally, the Mean Squared Error (MSE) was used to evaluate the accuracy of the predictions.
+While the best Mean Squared Error (MSE) of 0.0055 (or 5.55% of the mean AAC score) was achieved with AE-RF, it fails to predict high responses to drug treatment. On the other hand, AE-RankMLP achieved a Spearman score of 0.4743 on the test dataset, indicating a weak relationship between the predicted and actual drug responses, highlighting the difficulty of the predicting task.
 
 ### Conclusion
 
