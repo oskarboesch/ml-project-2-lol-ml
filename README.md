@@ -8,11 +8,16 @@ The project aims to build a model to predict drug responses using cancer genomic
 
 #### Dataset 
 
+All datasets except CGC.csv must be downloaded from kaggle at : https://www.kaggle.com/competitions/xai-in-cancer-medicine/data and placed in the data/raw folder
+
 * train.csv: The training dataset contains rows representing different cancer cell lines and columns representing various genes. Each value corresponds to the gene expression level in a specific cancer cell line.
 
 * train_targets.csv: This file includes the labels for the training data. The "AAC" column indicates the response of the cell lines to the drug Erlotinib, where a higher AAC value reflects a better response. Additionally, the "tissue" column identifies the type of cancer cell line. 
 
-* test.csv: The test dataset is structured similarly to the training dataset, with rows representing cancer cell lines and columns representing gene expression features. 
+* test.csv: The test dataset is structured similarly to the training dataset, with rows representing cancer cell lines and columns representing gene expression features.
+
+* CGC.csv: The CGC (Cancer Gene Census) files contains 753 unique genes linked to cancer risks and must be downloaded from the COSMIC database (https://cancer.sanger.ac.uk/cosmic) and placed in data/ folder
+
 
 #### Analyses 
 
